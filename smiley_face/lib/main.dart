@@ -44,11 +44,17 @@ class _EmojiDemoScreenState extends State<EmojiDemoScreen>
   Widget build(BuildContext context) {
     Widget emojiWidget;
     switch (selectedEmoji) {
+      case 'Smiley':
+        emojiWidget = const AnimatedSmileyFace();
+        break;
+      case 'Party':
+        emojiWidget = const PartySmileyFace();
+        break;
       case 'Heart':
         emojiWidget = const AnimatedHeart();
         break;
       default:
-        emojiWidget = const AnimatedHeart();
+        emojiWidget = const AnimatedSmileyFace();
     }
 
     return Scaffold(
@@ -130,8 +136,16 @@ class _EmojiDemoScreenState extends State<EmojiDemoScreen>
                       ),
                       items: const [
                         DropdownMenuItem(
+                          value: 'Smiley',
+                          child: Text("🙂 Smiley Face"),
+                        ),
+                        DropdownMenuItem(
+                          value: 'Party',
+                          child: Text("🥳 Party Smiley"),
+                        ),
+                        DropdownMenuItem(
                           value: 'Heart',
-                          child: Text("Heart Emoji ❤️"),
+                          child: Text("❤️ Heart Emoji"),
                         ),
                       ],
                       onChanged: (val) {
@@ -272,6 +286,228 @@ class HeartPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = 6 + 3 * sin(progress * 2 * pi);
     canvas.drawPath(heartPath, glowPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+}
+
+//// ---------------- Animated Smiley ---------------- ////
+
+class AnimatedSmileyFace extends StatefulWidget {
+  const AnimatedSmileyFace({super.key});
+
+  @override
+  State<AnimatedSmileyFace> createState() => _AnimatedSmileyFaceState();
+}
+
+class _AnimatedSmileyFaceState extends State<AnimatedSmileyFace>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 3),
+    )..repeat();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        return CustomPaint(
+          size: const Size(300, 300),
+          painter: SmileyPainter(_controller.value),
+        );
+      },
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+}
+
+class SmileyPainter extends CustomPainter {
+  final double progress;
+  SmileyPainter(this.progress);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final c = Offset(size.width / 2, size.height / 2);
+
+    final facePaint = Paint()
+      ..shader = RadialGradient(
+        colors: [Colors.yellow.shade200, Colors.yellow.shade700],
+      ).createShader(Rect.fromCircle(center: c, radius: 100));
+    canvas.drawCircle(c, 100, facePaint);
+
+    final eyePaint = Paint()..color = Colors.black;
+    double blink = (sin(progress * 2 * pi) + 1) / 2;
+    canvas.drawOval(
+      Rect.fromCenter(
+        center: Offset(c.dx - 40, c.dy - 30),
+        width: 20,
+        height: 20 * blink,
+      ),
+      eyePaint,
+    );
+    canvas.drawOval(
+      Rect.fromCenter(
+        center: Offset(c.dx + 40, c.dy - 30),
+        width: 20,
+        height: 20 * blink,
+      ),
+      eyePaint,
+    );
+
+    final smilePaint = Paint()
+      ..color = Colors.black
+      ..strokeWidth = 6
+      ..style = PaintingStyle.stroke;
+    final smileRect = Rect.fromCircle(
+      center: Offset(c.dx, c.dy + 20),
+      radius: 50,
+    );
+    double sweep = 0.6 * pi + 0.2 * pi * sin(progress * 2 * pi);
+    canvas.drawArc(smileRect, 0.2 * pi, sweep, false, smilePaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+}
+
+//// ---------------- Party Smiley ---------------- ////
+
+class PartySmileyFace extends StatefulWidget {
+  const PartySmileyFace({super.key});
+
+  @override
+  State<PartySmileyFace> createState() => _PartySmileyFaceState();
+}
+
+class _PartySmileyFaceState extends State<PartySmileyFace>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  final Random random = Random();
+  final List<ConfettiPiece> confetti = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
+    )..repeat();
+    for (int i = 0; i < 60; i++) {
+      confetti.add(
+        ConfettiPiece(
+          x: random.nextDouble() * 300,
+          y: random.nextDouble() * -300,
+          color: Colors.primaries[random.nextInt(Colors.primaries.length)],
+          size: 5 + random.nextDouble() * 8,
+          speed: 1 + random.nextDouble() * 2,
+        ),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        for (var c in confetti) {
+          c.y += c.speed;
+          if (c.y > 300) {
+            c.y = random.nextDouble() * -100;
+            c.x = random.nextDouble() * 300;
+          }
+        }
+        return Stack(
+          alignment: Alignment.center,
+          children: [
+            CustomPaint(
+              size: const Size(300, 300),
+              painter: SmileyPainter(_controller.value),
+            ),
+            CustomPaint(
+              size: const Size(300, 300),
+              painter: PartyHatPainter(_controller.value),
+            ),
+            CustomPaint(
+              size: const Size(300, 300),
+              painter: ConfettiPainter(confetti),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+}
+
+class ConfettiPiece {
+  double x, y, size, speed;
+  Color color;
+  ConfettiPiece({
+    required this.x,
+    required this.y,
+    required this.color,
+    required this.size,
+    required this.speed,
+  });
+}
+
+class ConfettiPainter extends CustomPainter {
+  final List<ConfettiPiece> confetti;
+  ConfettiPainter(this.confetti);
+  @override
+  void paint(Canvas canvas, Size size) {
+    for (var c in confetti) {
+      final paint = Paint()..color = c.color;
+      canvas.drawCircle(Offset(c.x, c.y), c.size / 2, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+}
+
+class PartyHatPainter extends CustomPainter {
+  final double progress;
+  PartyHatPainter(this.progress);
+  @override
+  void paint(Canvas canvas, Size size) {
+    final c = Offset(size.width / 2, size.height / 2);
+    final hatPath = Path()
+      ..moveTo(c.dx - 40, c.dy - 100)
+      ..lineTo(c.dx, c.dy - 170 - 5 * sin(progress * 2 * pi))
+      ..lineTo(c.dx + 40, c.dy - 100)
+      ..close();
+    final hatPaint = Paint()
+      ..shader = LinearGradient(
+        colors: [Colors.red, Colors.orange, Colors.purple],
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+      ).createShader(Rect.fromLTWH(c.dx - 40, c.dy - 170, 80, 70));
+    canvas.drawPath(hatPath, hatPaint);
+    canvas.drawCircle(
+      Offset(c.dx, c.dy - 170 - 5 * sin(progress * 2 * pi)),
+      12,
+      Paint()..color = Colors.purple,
+    );
   }
 
   @override
